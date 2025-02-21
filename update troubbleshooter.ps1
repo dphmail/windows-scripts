@@ -124,12 +124,50 @@ $searchResult.Updates | ForEach-Object {
 } | Format-Table -AutoSize
 
 # 5. Checking if server can reach its update source
-Write-Host "`nChecking Windows Update source..." -ForegroundColor Yellow
-$wuComponents = Test-NetConnection -ComputerName "update.microsoft.com" -Port 443
-if ($wuComponents.TcpTestSucceeded) {
-    Write-Host "Windows Update servers are reachable." -ForegroundColor Green
+
+# Check if WSUS is configured by examining the registry
+$wsusAU = Get-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU" -ErrorAction SilentlyContinue
+
+if ($wsusAU -and $wsusAU.UseWUServer -eq 1) {
+    $wsusSettings = Get-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate" -ErrorAction SilentlyContinue
+    if ($wsusSettings.WUServer) {
+        try {
+            # Convert the WSUS server string to a URI object for parsing
+            $wsusUri = [Uri]$wsusSettings.WUServer
+            Write-Host "`nWSUS is configured. Checking connectivity to WSUS server at $($wsusUri.Host) on port $($wsusUri.Port) ..." -ForegroundColor Yellow
+            $wsusConn = Test-NetConnection -ComputerName $wsusUri.Host -Port $wsusUri.Port
+            if ($wsusConn.TcpTestSucceeded) {
+                Write-Host "WSUS server is reachable." -ForegroundColor Green
+                Write-Host "Warning: Updates displayed may not be accurate as only approved WSUS updates are shown." -ForegroundColor Yellow
+            } else {
+                Write-Host "WSUS server is NOT reachable. Check your network or firewall settings." -ForegroundColor Red
+            }
+        } catch {
+            Write-Host "Failed to parse WSUS server settings. Falling back to Windows Update connectivity check..." -ForegroundColor Red
+            $wuComponents = Test-NetConnection -ComputerName "update.microsoft.com" -Port 443
+            if ($wuComponents.TcpTestSucceeded) {
+                Write-Host "Windows Update servers are reachable." -ForegroundColor Green
+            } else {
+                Write-Host "Windows Update servers are NOT reachable. Check your network or firewall settings." -ForegroundColor Red
+            }
+        }
+    } else {
+        Write-Host "WSUS configuration detected but no WUServer value found. Checking Windows Update source..." -ForegroundColor Yellow
+        $wuComponents = Test-NetConnection -ComputerName "update.microsoft.com" -Port 443
+        if ($wuComponents.TcpTestSucceeded) {
+            Write-Host "Windows Update servers are reachable." -ForegroundColor Green
+        } else {
+            Write-Host "Windows Update servers are NOT reachable. Check your network or firewall settings." -ForegroundColor Red
+        }
+    }
 } else {
-    Write-Host "Windows Update servers are NOT reachable. Check your network or firewall settings." -ForegroundColor Red
+    Write-Host "`nChecking Windows Update source..." -ForegroundColor Yellow
+    $wuComponents = Test-NetConnection -ComputerName "update.microsoft.com" -Port 443
+    if ($wuComponents.TcpTestSucceeded) {
+        Write-Host "Windows Update servers are reachable." -ForegroundColor Green
+    } else {
+        Write-Host "Windows Update servers are NOT reachable. Check your network or firewall settings." -ForegroundColor Red
+    }
 }
 
 # 6. Run System File Checker (SFC) and DISM (Without Reboot)

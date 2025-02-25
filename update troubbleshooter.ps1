@@ -179,7 +179,7 @@ while ($jobSFC.State -eq 'Running') {
     Write-Progress -Activity "Running SFC" -Status "Scanning for corrupt files..." -PercentComplete (Get-Random -Minimum 1 -Maximum 90)
     Start-Sleep -Seconds 5
 }
-Receive-Job $jobSFC | Out-Null
+Receive-Job $jobSFC
 Write-Progress -Activity "Running SFC" -Status "SFC scan completed." -PercentComplete 100 -Completed
 Write-Host "SFC scan completed." -ForegroundColor Green
 
@@ -190,7 +190,7 @@ while ($jobDISM.State -eq 'Running') {
     Write-Progress -Activity "Running DISM" -Status "Checking Windows Update Health..." -PercentComplete (Get-Random -Minimum 1 -Maximum 90)
     Start-Sleep -Seconds 5
 }
-Receive-Job $jobDISM | Out-Null
+Receive-Job $jobDISM
 Write-Progress -Activity "Running DISM" -Status "DISM check completed." -PercentComplete 100 -Completed
 Write-Host "DISM check completed. If issues were found, run 'DISM /Online /Cleanup-Image /RestoreHealth' manually." -ForegroundColor Green
 
